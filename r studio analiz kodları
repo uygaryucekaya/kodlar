@@ -1,0 +1,314 @@
+nukscancer1_data <- read.table("clipboard", header = TRUE, sep = "\t")
+nukscancer2_data <- read.table("clipboard", header = TRUE, sep = "\t")
+nukscancer3_data <- read.table("clipboard", header = TRUE, sep = "\t")
+nukscancer4_data <- read.table("clipboard", header = TRUE, sep = "\t")
+nukscancer5_data <- read.table("clipboard", header = TRUE, sep = "\t")
+nukscancer6_data <- read.table("clipboard", header = TRUE, sep = "\t")
+nukscancer7_data <- read.table("clipboard", header = TRUE, sep = "\t")
+nukscancer8_data <- read.table("clipboard", header = TRUE, sep = "\t")
+
+
+
+prim1_data <- read.table("clipboard", header = TRUE, sep = "\t")
+prim2_data <- read.table("clipboard", header = TRUE, sep = "\t")
+prim3_data <- read.table("clipboard", header = TRUE, sep = "\t")
+prim4_data <- read.table("clipboard", header = TRUE, sep = "\t")
+prim5_data <- read.table("clipboard", header = TRUE, sep = "\t")
+prim6_data <- read.table("clipboard", header = TRUE, sep = "\t")
+prim7_data <- read.table("clipboard", header = TRUE, sep = "\t")
+prim8_data <- read.table("clipboard", header = TRUE, sep = "\t")
+
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+BiocManager::install("DESeq2", lib = "C:/R libs/")
+
+library(DESeq2, lib.loc = "C:/R libs/")
+library(ggplot2)
+
+BiocManager::install("pheatmap", lib = "C:/R libs/")
+
+
+library(pheatmap, lib.loc = "C:/R libs/")
+
+BiocManager::install("EnhancedVolcano", lib = "C:/R libs/")
+
+BiocManager::install("EnhancedVolcano", lib = "C:/R libs/")
+
+nukscancer_data <- list(nukscancer1_data, nukscancer2_data, nukscancer3_data, nukscancer4_data,
+                        nukscancer5_data, nukscancer6_data, nukscancer7_data, nukscancer8_data)
+
+prim_data <- list(prim1_data, prim2_data, prim3_data, prim4_data, 
+                  prim5_data, prim6_data, prim7_data, prim8_data)
+
+count_data_nukscancer <- do.call(cbind, lapply(nukscancer_data, function(df) df$fpkm_unstranded))
+count_data_prim <- do.call(cbind, lapply(prim_data, function(df) df$fpkm_unstranded))
+
+count_data <- cbind(count_data_nukscancer, count_data_prim)
+
+colnames(count_data) <- c(rep("nukscancer", length(nukscancer_data)), rep("prim", length(prim_data)))
+
+count_data <- as.matrix(count_data)
+
+
+condition <- factor(c(rep("recurrent", length(nukscancer_data)), rep("primary", length(prim_data))))
+
+dds <- DESeqDataSetFromMatrix(countData = count_data,
+                              colData = DataFrame(condition = condition),
+                              design = ~ condition)
+
+
+any(is.na(count_data))
+
+count_data[is.na(count_data)] <- 0
+
+
+count_data <- round(count_data)
+
+dds <- DESeqDataSetFromMatrix(countData = count_data,
+                              colData = DataFrame(condition = condition),
+                              design = ~ condition)
+
+dds <- dds[rowSums(counts(dds)) > 10, ]
+
+dds <- DESeq(dds)
+
+
+
+res <- results(dds)
+
+res_sig <- res[which(res$pvalue < 0.05 & abs(res$log2FoldChange) > 1), ]
+
+head(res_sig)
+
+plotMA(res, ylim = c(-5, 5))
+
+hist(res$pvalue[!is.na(res$pvalue)], breaks = 50, col = "grey", main = "p-value Distribution", xlab = "p-value")
+
+
+library(dplyr)
+library(ggplot2)
+
+target_genes <- c("ALDH1A1", "ALDH1A2", "ALDH1A3", "SOX2", "NANOG", "PROM1")
+
+nuks_datasets <- list(nukscancer1_data, nukscancer2_data, nukscancer3_data, nukscancer4_data,
+                      nukscancer5_data, nukscancer6_data, nukscancer7_data, nukscancer8_data)
+
+prim_datasets <- list(prim1_data, prim2_data, prim3_data, prim4_data,
+                      prim5_data, prim6_data, prim7_data, prim8_data)
+
+calculate_log2_means <- function(dataset_list) {
+  bind_rows(lapply(dataset_list, function(df) {
+    df %>%
+      mutate(fpkm_unstranded = as.numeric(fpkm_unstranded))  
+  })) %>%
+    filter(gene_name %in% target_genes) %>%
+    filter(!is.na(fpkm_unstranded)) %>%
+    group_by(gene_name) %>%
+    summarise(mean_fpkm = mean(fpkm_unstranded, na.rm = TRUE)) %>%
+    mutate(log2_fpkm = log2(mean_fpkm))  
+}
+
+nuks_means <- calculate_log2_means(nuks_datasets)
+prim_means <- calculate_log2_means(prim_datasets)
+
+comparison_data <- bind_rows(
+  nuks_means %>% mutate(group = "Recurrence"),
+  prim_means %>% mutate(group = "Primary")
+)
+
+ggplot(comparison_data, aes(x = gene_name, y = log2_fpkm, fill = group)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Log2 Transformed Mean FPKM Values for Recurrence vs Primary",
+       x = "Gene Name", y = "Log2(Mean FPKM)") +
+  theme_minimal() +
+  scale_fill_manual(values = c("Recurrence" = "#E74C3C", "Primary" = "#3498DB")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  
+
+####################
+
+target_genes <- c("ALDH1A1", "ALDH1A2", "ALDH1A3", "SOX2", "NANOG", "PROM1")
+
+ocsc_values <- c(0.118, 0.120, 0.1686, 0.35, 0.372, 0.343)
+ocsc_data <- data.frame(gene_name = target_genes, log2_fpkm = ocsc_values, group = "OCSC")
+
+nuks_datasets <- list(nukscancer1_data, nukscancer2_data, nukscancer3_data, nukscancer4_data,
+                      nukscancer5_data, nukscancer6_data, nukscancer7_data, nukscancer8_data)
+
+prim_datasets <- list(prim1_data, prim2_data, prim3_data, prim4_data,
+                      prim5_data, prim6_data, prim7_data, prim8_data)
+
+calculate_log2_means <- function(dataset_list) {
+  bind_rows(lapply(dataset_list, function(df) {
+    df %>%
+      mutate(fpkm_unstranded = as.numeric(fpkm_unstranded))  
+  })) %>%
+    filter(gene_name %in% target_genes) %>%
+    filter(!is.na(fpkm_unstranded)) %>%
+    group_by(gene_name) %>%
+    summarise(mean_fpkm = mean(fpkm_unstranded, na.rm = TRUE)) %>%
+    mutate(log2_fpkm = log2(mean_fpkm))  
+}
+
+nuks_means <- calculate_log2_means(nuks_datasets) %>% mutate(group = "Recurrence")
+prim_means <- calculate_log2_means(prim_datasets) %>% mutate(group = "Primary")
+
+comparison_nuks_vs_ocsc <- bind_rows(nuks_means, ocsc_data)
+
+ggplot(comparison_nuks_vs_ocsc, aes(x = gene_name, y = log2_fpkm, fill = group)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Log2 Transformed Mean FPKM Values for Recurrence vs OCSC",
+       x = "Gene Name", y = "Log2(Mean FPKM)") +
+  theme_minimal() +
+  scale_fill_manual(values = c("Recurrence" = "#E74C3C", "OCSC" = "#2ECC71")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#############
+
+library(tidyr)
+
+genes <- c("ALDH1A1", "ALDH1A2", "ALDH1A3", "SOX2", "NANOG", "PROM1")
+
+nuks_datasets <- list(nukscancer1_data, nukscancer2_data, nukscancer3_data, nukscancer4_data,
+                      nukscancer5_data, nukscancer6_data, nukscancer7_data, nukscancer8_data)
+
+ocsc_values <- c(0.118, 0.120, 0.1686, 0.35, 0.372, 0.343)
+ocsc_extended_values <- rep(ocsc_values, length.out = 8)  
+
+all_data <- data.frame()
+
+for (gene in genes) {
+  
+  nuks_values <- unlist(lapply(nuks_datasets, function(dataset) {
+    dataset %>% filter(gene_name == gene) %>% pull(fpkm_unstranded)
+  }))
+  
+  ocsc_values <- ocsc_extended_values  
+  
+  nuks_values_log <- log1p(nuks_values)  
+  
+  temp_data <- data.frame(
+    Gene = gene, 
+    Nuks_FPKM = nuks_values_log,  
+    OCSC_FPKM = ocsc_values  
+  )
+  
+  all_data <- bind_rows(all_data, temp_data)
+}
+
+for (gene in genes) {
+  
+  gene_data <- all_data %>% filter(Gene == gene)
+  
+  plot_compare <- ggplot(gene_data, aes(x = Nuks_FPKM, y = OCSC_FPKM)) +
+    geom_point(color = "blue", size = 3, alpha = 0.7) +  
+    geom_smooth(method = "lm", color = "red", se = FALSE) +  
+    labs(x = paste(gene, "Recurrence Expression"), 
+         y = paste(gene, "OCSC Expression"),
+         title = paste(gene, "Recurrence vs OCSC Expression")) +
+    theme_minimal()
+  
+  print(plot_compare)
+}
+
+############
+
+library(clusterProfiler)
+library(org.Hs.eg.db)
+library(dplyr)
+library(enrichplot)
+
+genes_nano_sox_prom <- c("NANOG", "SOX2", "PROM1")
+genes_aldh <- c("ALDH1A1", "ALDH1A2", "ALDH1A3")
+
+genes_nano_sox_prom_ids <- bitr(genes_nano_sox_prom, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = org.Hs.eg.db)
+genes_aldh_ids <- bitr(genes_aldh, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = org.Hs.eg.db)
+
+go_bp_nano_sox_prom <- enrichGO(
+  gene = genes_nano_sox_prom_ids$ENTREZID,
+  OrgDb = org.Hs.eg.db,
+  keyType = "ENTREZID",
+  ont = "BP",  # Biological Process
+  pAdjustMethod = "BH",
+  pvalueCutoff = 0.05,
+  qvalueCutoff = 0.05,
+  readable = TRUE
+)
+
+go_bp_aldh <- enrichGO(
+  gene = genes_aldh_ids$ENTREZID,
+  OrgDb = org.Hs.eg.db,
+  keyType = "ENTREZID",
+  ont = "BP",  # Biological Process
+  pAdjustMethod = "BH",
+  pvalueCutoff = 0.05,
+  qvalueCutoff = 0.05,
+  readable = TRUE
+)
+
+barplot(go_bp_nano_sox_prom, showCategory = 10, 
+        main = "iological Process GO Terms: NANOG, SOX2", 
+        color = "p.adjust", 
+        order = TRUE)
+
+barplot(go_bp_aldh, showCategory = 10, 
+        main = "Biological Process GO Terms: ALDH Genes", 
+        color = "p.adjust", 
+        order = TRUE)
+
+barplot(go_bp_nano_sox_prom, showCategory = 10, 
+        title = "Biological Process GO Terms: NANOG, SOX2", 
+        color = "p.adjust", 
+        order = TRUE)
+
+barplot(go_bp_aldh, showCategory = 10, 
+        title = "Biological Process GO Terms: ALDH1A1, ALDH1A2, ALDH1A3 Genes", 
+        color = "p.adjust", 
+        order = TRUE)
+
+############
+
+library(reshape2)
+
+genes <- c("ALDH1A1", "ALDH1A2", "ALDH1A3", "SOX2", "NANOG", "PROM1")
+
+ocsc_values <- c(0.118, 0.120, 0.1686, 0.35, 0.372, 0.343)
+
+extract_gene_data <- function(dataset_list, gen_name) {
+  data_list <- lapply(dataset_list, function(dataset) {
+    dataset <- as_tibble(dataset)  
+    dataset %>%
+      dplyr::filter(gene_name == gen_name) %>%   
+      dplyr::select(fpkm_unstranded)  
+  })
+  bind_rows(data_list)  
+}
+
+nuks_datasets <- list(nukscancer1_data, nukscancer2_data, nukscancer3_data, nukscancer4_data,
+                      nukscancer5_data, nukscancer6_data, nukscancer7_data, nukscancer8_data)
+
+nuks_values <- sapply(genes, function(gene) {
+  nuks_data <- extract_gene_data(nuks_datasets, gene)
+  mean(nuks_data$fpkm_unstranded)
+})
+
+log_nuks_values <- log(nuks_values)
+
+data_matrix_nuks_ocsc <- expand.grid(Recurrence = genes, OCSC = genes)
+data_matrix_nuks_ocsc$FPKM <- mapply(function(nuks_gene, ocsc_gene) {
+  nuks_fpkm <- log_nuks_values[nuks_gene == genes]
+  ocsc_fpkm <- ocsc_values[ocsc_gene == genes]
+  return(abs(nuks_fpkm - ocsc_fpkm))  
+}, data_matrix_nuks_ocsc$Recurrence, data_matrix_nuks_ocsc$OCSC)
+
+data_long_nuks_ocsc <- melt(data_matrix_nuks_ocsc, id.vars = c("Recurrence", "OCSC"), variable.name = "Comparison", value.name = "FPKM")
+
+heatmap_plot_nuks_ocsc <- ggplot(data_long_nuks_ocsc, aes(x = Recurrence, y = OCSC, fill = FPKM)) +
+  geom_tile() +
+  scale_fill_gradient(low = "yellow", high = "red", guide = "none") +  
+  labs(title = "Recurrence OC vs OCSC Gene Expression Heatmap", x = "Recurrence Gene", y = "OCSC Gene") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  
+
+print(heatmap_plot_nuks_ocsc)
