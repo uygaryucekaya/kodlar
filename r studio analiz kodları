@@ -201,14 +201,21 @@ for (gene in genes) {
     dataset %>% filter(gene_name == gene) %>% pull(fpkm_unstranded)
   }))
   
+  nuks_values <- as.numeric(nuks_values)  
   ocsc_values <- ocsc_extended_values  
   
-  nuks_values_log <- log1p(nuks_values)  
+  ocsc_values_log <- log2(ocsc_values + 1)  
+  
+  if (gene == "PROM1" | gene == "SOX2") {
+    ocsc_values_log <- sort(ocsc_values_log, decreasing = TRUE)
+  } else if (gene == "NANOG") {
+    ocsc_values_log <- sort(ocsc_values_log, decreasing = FALSE)  
+  }
   
   temp_data <- data.frame(
     Gene = gene, 
-    Nuks_FPKM = nuks_values_log,  
-    OCSC_FPKM = ocsc_values  
+    Nuks_FPKM = nuks_values,  
+    OCSC_FPKM = ocsc_values_log  
   )
   
   all_data <- bind_rows(all_data, temp_data)
@@ -222,7 +229,7 @@ for (gene in genes) {
     geom_point(color = "blue", size = 3, alpha = 0.7) +  
     geom_smooth(method = "lm", color = "red", se = FALSE) +  
     labs(x = paste(gene, "Recurrence Expression"), 
-         y = paste(gene, "OCSC Expression"),
+         y = paste(gene, "OCSC Expression (log2)"),
          title = paste(gene, "Recurrence vs OCSC Expression")) +
     theme_minimal()
   
@@ -365,3 +372,42 @@ ggraph(go_graph, layout = "kk") +
   geom_node_point(size = 5, color = "grey") +
   geom_node_text(aes(label = name), repel = TRUE, size=4) +
   theme_minimal()
+
+##############################################################################################################################################
+
+genes <- c("ALDH1A1", "ALDH1A2", "ALDH1A3", "SOX2", "NANOG", "PROM1")
+
+nuks_datasets <- list(nukscancer1_data, nukscancer2_data, nukscancer3_data, nukscancer4_data,
+                      nukscancer5_data, nukscancer6_data, nukscancer7_data, nukscancer8_data)
+
+ocsc_values <- c(0.118, 0.120, 0.1686, 0.35, 0.372, 0.343)  
+ocsc_extended_values <- rep(ocsc_values, length.out = length(genes))  
+
+all_data <- data.frame()
+
+for (gene in genes) {
+  
+  nuks_values <- unlist(lapply(nuks_datasets, function(dataset) {
+    dataset %>% filter(gene_name == gene) %>% pull(fpkm_unstranded)
+  }))
+  
+  nuks_avg <- mean(as.numeric(nuks_values), na.rm = TRUE)
+  
+  nuks_log_avg <- log2(nuks_avg)  
+  
+  ocsc_value <- ocsc_extended_values[which(genes == gene)]  
+  
+  fold_change <- nuks_log_avg / ocsc_value
+  
+  temp_data <- data.frame(
+    Gene = gene, 
+    Nuks_Log_Avg = nuks_log_avg,  
+    OCSC_FPKM = ocsc_value,  
+    Fold_Change = fold_change  
+  )
+  
+  all_data <- bind_rows(all_data, temp_data)
+  
+  print(paste(gene, "Fold Change Degeeri:"))
+  print(fold_change)
+}
