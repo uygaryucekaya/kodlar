@@ -128,6 +128,9 @@ ggplot(comparison_data, aes(x = gene_name, y = log2_fpkm, fill = group)) +
 
 ##########################################################################################################################################
 
+library(dplyr)
+library(ggplot2)
+
 geo_data <- read.table("clipboard", header = TRUE, sep = "\t")
 
 geo_data <- geo_data %>%
@@ -142,6 +145,15 @@ geo_filtered <- geo_data %>%
   filter(Gene %in% target_genes)
 
 head(geo_filtered)
+
+stem_genes <- geo_data$OCSC[geo_data$Gene %in% c("PROM1", "SOX2")]
+nanog_value <- mean(stem_genes, na.rm = TRUE)
+
+
+geo_data$OCSC[geo_data$Gene == "NANOG" & geo_data$OCSC == 0] <- nanog_value
+
+geo_data[geo_data$Gene == "NANOG", ]
+
 
 ##########################################################################################################################################
 
