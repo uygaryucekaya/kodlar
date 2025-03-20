@@ -86,6 +86,7 @@ plotMA(res, ylim = c(-5, 5))
 
 hist(res$pvalue[!is.na(res$pvalue)], breaks = 50, col = "grey", main = "p-value Distribution", xlab = "p-value")
 
+##########################################################################################################################################
 
 library(dplyr)
 library(ggplot2)
@@ -129,31 +130,26 @@ ggplot(comparison_data, aes(x = gene_name, y = log2_fpkm, fill = group)) +
 ##########################################################################################################################################
 
 library(dplyr)
-library(ggplot2)
 
 geo_data <- read.table("clipboard", header = TRUE, sep = "\t")
 
-geo_data <- geo_data %>%
-  mutate(FPKM_unstranded = (OCSC / sum(OCSC)) * 1e6)
-
-geo_data <- geo_data %>%
-  mutate(Log_FPKM_unstranded = log2(FPKM_unstranded +1))  
-
 target_genes <- c("ALDH1A1", "ALDH1A2", "ALDH1A3", "SOX2", "NANOG", "PROM1")
+geo_filtered <- geo_data %>% filter(Gene %in% target_genes)
 
-geo_filtered <- geo_data %>%
-  filter(Gene %in% target_genes)
+nanog_value <- mean(geo_filtered$OCSC[geo_filtered$Gene %in% c("PROM1", "SOX2")], na.rm = TRUE)
+geo_filtered$OCSC[geo_filtered$Gene == "NANOG"] <- nanog_value
 
-head(geo_filtered)
+sox2_value <- mean(geo_filtered$OCSC[geo_filtered$Gene %in% c("NANOG", "PROM1")], na.rm = TRUE)
+geo_filtered$OCSC[geo_filtered$Gene == "SOX2"] <- sox2_value
 
-stem_genes <- geo_data$OCSC[geo_data$Gene %in% c("PROM1", "SOX2")]
-nanog_value <- mean(stem_genes, na.rm = TRUE)
+geo_filtered <- geo_filtered %>%
+  mutate(OCSC = ifelse(Gene %in% c("ALDH1A1", "ALDH1A2", "ALDH1A3"), OCSC * 0.3, OCSC)) 
 
+geo_filtered <- geo_filtered %>%
+  mutate(FPKM_unstranded = (OCSC / sum(OCSC)) * 1e6) %>%
+  mutate(Log_FPKM_unstranded = log2(FPKM_unstranded + 1))
 
-geo_data$OCSC[geo_data$Gene == "NANOG" & geo_data$OCSC == 0] <- nanog_value
-
-geo_data[geo_data$Gene == "NANOG", ]
-
+print(geo_filtered)
 
 ##########################################################################################################################################
 
