@@ -8,7 +8,6 @@ nukscancer7_data <- read.table("clipboard", header = TRUE, sep = "\t")
 nukscancer8_data <- read.table("clipboard", header = TRUE, sep = "\t")
 
 
-
 prim1_data <- read.table("clipboard", header = TRUE, sep = "\t")
 prim2_data <- read.table("clipboard", header = TRUE, sep = "\t")
 prim3_data <- read.table("clipboard", header = TRUE, sep = "\t")
@@ -18,6 +17,7 @@ prim6_data <- read.table("clipboard", header = TRUE, sep = "\t")
 prim7_data <- read.table("clipboard", header = TRUE, sep = "\t")
 prim8_data <- read.table("clipboard", header = TRUE, sep = "\t")
 
+##########################################################################################################################################
 
 if (!requireNamespace("BiocManager", quietly = TRUE))
   install.packages("BiocManager")
